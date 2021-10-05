@@ -60,6 +60,10 @@ class Track(tk.Frame):
             self.__deleteSequence()
         elif editMode == "move":
             self.__move()
+        elif editMode == "resize_left":
+            self.__resizeLeft()
+        elif editMode == "resize_right":
+            self.__resizeRight()
         self.__startTimestep = None
         self.__endTimestep = None
         
@@ -74,18 +78,37 @@ class Track(tk.Frame):
                 result = timestep + a[0][0]
         print("Next timestep: ", timestep, self.__data, result)
         return result
+    
+    def __previousFree(self, timestep):
+        a = np.argwhere(self.__data[:timestep] == 0)
+        if len(a) == 0:
+            result = 0
+        else:
+              result = a[-1][0]
+        return result
         
     def __lastFreeAfter(self, timestep):
-        if (len(self.__data) <= timestep):
-            result = np.inf
-        else:
-            a = np.argwhere(self.__data[timestep:] > 0)
-            if (len(a) == 0):
-                result = np.inf
-            else:
-                result = timestep + a[0][0]
-        print("Last free after: ", timestep, self.__data, result)
-        return result
+        if self.__data.shape[0] <= timestep:
+            return np.inf
+        if self.__data[timestep] != 0:
+            return np.inf
+        i = timestep
+        while (i < self.__data.shape[0]):
+            if self.__data[i] != 0:
+                return i - 1
+            i += 1
+        return np.inf
+    
+    def __firstFreeBefore(self, timestep):
+        if self.__data[timestep] != 0:
+            return -1
+        i = timestep
+        while (i >= 0):
+            if self.__data[i] != 0:
+                return i + 1
+            i -= 1
+        return -1
+            
     
     def __createSequence(self, startTimestep, endTimestep):
         self.__sequenceRectangles.append(
@@ -100,16 +123,15 @@ class Track(tk.Frame):
         self.__sequences.append(
             Sequence(startTimestep, endTimestep - startTimestep)
         )
+        self.__fillWithZeros(endTimestep)
+        self.__data[startTimestep:endTimestep] = len(self.__sequences)
+        
+    def __fillWithZeros(self, endTimestep):
         if (self.__data.shape[0] < endTimestep):
             newZeros = np.zeros((endTimestep - self.__data.shape[0],), dtype='int')
             self.__data = np.concatenate([self.__data, newZeros], 0)
-        self.__data[startTimestep:endTimestep] = len(self.__sequences)
-        print("length after createSequence: ", self.__data.shape[0])
-        print("data after createSequence: ", self.__data)
-        print("sequences:")
-        for sequence in self.__sequences:
-            print("    ", sequence.getStartTimestep(), " - ", sequence.getEndTimestep())
-        
+
+            
     def __deleteSequence(self):
         indexes = []
         for i in range(len(self.__sequences)):
@@ -125,18 +147,115 @@ class Track(tk.Frame):
             self.__canvas.delete(self.__sequenceRectangles[i])
             del self.__sequenceRectangles[i]
             del self.__sequences[i]
+        self.__deleteZerosAtEnd()
+        print("length after createSequence: ", self.__data.shape[0])
+        print("data after createSequence: ", self.__data)
+
+    def __deleteZerosAtEnd(self):
         a = np.argwhere(self.__data > 0)
         if len(a) == 0:
             self.__data = np.zeros((0,), dtype='int')
         else:
             self.__data = self.__data[0:a[-1][0]+1]
-        print("length after createSequence: ", self.__data.shape[0])
-        print("data after createSequence: ", self.__data)
+
+    def __getMaximalCoveredIndex(self, startTimestep, endTimestep):
+        return self.__data[startTimestep:endTimestep].max()
 
     def __move(self):
-        index = self.__data[self.__startTimestep]
+        print("move: startTimestep: ", self.__startTimestep)
+        if (self.__startTimestep >= self.__data.shape[0]):
+            return
+        index = self.__data[self.__startTimestep] - 1
+        if (index < 0):
+            return
+        print(self.__sequences)
+        print(index)
         startTimestepOfSequence = self.__sequences[index].getStartTimestep()
         endTimestepOfSequence = self.__sequences[index].getEndTimestep()
+        diff = self.__endTimestep - self.__startTimestep
+        self.__data[startTimestepOfSequence:endTimestepOfSequence] = 0
+        self.__fillWithZeros(self.__data.shape[0] + diff + endTimestepOfSequence - startTimestepOfSequence)
+        possible = False
+        i = 0
+        while not possible:
+            newStartTimestep = startTimestepOfSequence + diff - i
+            newEndTimestep = endTimestepOfSequence + diff - i
+            if (newStartTimestep >= 0):
+                if self.__getMaximalCoveredIndex(newStartTimestep, newEndTimestep) == 0:
+                    possible = True
+                    break
+            newStartTimestep = startTimestepOfSequence + diff + i
+            newEndTimestep = endTimestepOfSequence + diff + i
+            if (newStartTimestep >= 0):
+                if self.__getMaximalCoveredIndex(newStartTimestep, newEndTimestep) == 0:
+                    possible = True
+            i += 1
+        self.__data[newStartTimestep:newEndTimestep] = index + 1
+        (x1, y1, x2, y2) = self.__canvas.coords(index + 1)
+        self.__canvas.coords(
+            index + 1,
+            newStartTimestep * OVERVIEW_TIME_STEP_WIDTH,
+            y1,
+            newEndTimestep * OVERVIEW_TIME_STEP_WIDTH,
+            y2
+        )
+        self.__sequences[index].setStartTimestep(newStartTimestep)
+        self.__deleteZerosAtEnd()
+        print("total length: ", self.__data.shape[0])
+
+    def __resizeLeft(self):
+        if (self.__startTimestep >= self.__data.shape[0]):
+            return
+        index = self.__data[self.__startTimestep] - 1
+        if (index < 0):
+            return
+        startTimestepOfSequence = self.__sequences[index].getStartTimestep()
+        endTimestepOfSequence = self.__sequences[index].getEndTimestep()
+        diff = self.__endTimestep - self.__startTimestep
+        self.__data[startTimestepOfSequence:endTimestepOfSequence] = 0
+        newStartTimestep = startTimestepOfSequence + diff
+        newStartTimestep = max(newStartTimestep, self.__firstFreeBefore(startTimestepOfSequence))
+        newStartTimestep = max(newStartTimestep, 0)
+        if newStartTimestep >= endTimestepOfSequence:
+            self.__data[startTimestepOfSequence:endTimestepOfSequence] = index + 1
+            return
+        self.__data[newStartTimestep:endTimestepOfSequence] = index + 1
+        (x1, y1, x2, y2) = self.__canvas.coords(index + 1)
+        self.__canvas.coords(
+            index + 1,
+            newStartTimestep * OVERVIEW_TIME_STEP_WIDTH,
+            y1,
+            endTimestepOfSequence * OVERVIEW_TIME_STEP_WIDTH,
+            y2
+        )
+        self.__sequences[index].setStartTimestep(newStartTimestep)
+        self.__sequences[index].setLength(endTimestepOfSequence - newStartTimestep)
         
-        
-        
+    def __resizeRight(self):
+        if (self.__startTimestep >= self.__data.shape[0]):
+            return
+        index = self.__data[self.__startTimestep] - 1
+        if (index < 0):
+            return
+        startTimestepOfSequence = self.__sequences[index].getStartTimestep()
+        endTimestepOfSequence = self.__sequences[index].getEndTimestep()
+        diff = self.__endTimestep - self.__startTimestep
+        self.__data[startTimestepOfSequence:endTimestepOfSequence] = 0
+        newEndTimestep = endTimestepOfSequence + diff
+        newEndTimestep = min(newEndTimestep, self.__lastFreeAfter(endTimestepOfSequence) + 1)
+        self.__fillWithZeros(newEndTimestep)
+        if startTimestepOfSequence >= newEndTimestep:
+            self.__data[startTimestepOfSequence:endTimestepOfSequence] = index + 1
+            return
+        self.__data[startTimestepOfSequence:newEndTimestep] = index + 1
+        (x1, y1, x2, y2) = self.__canvas.coords(index + 1)
+        self.__canvas.coords(
+            index + 1,
+            startTimestepOfSequence * OVERVIEW_TIME_STEP_WIDTH,
+            y1,
+            newEndTimestep * OVERVIEW_TIME_STEP_WIDTH,
+            y2
+        )
+        self.__sequences[index].setLength(newEndTimestep - startTimestepOfSequence)        
+        self.__deleteZerosAtEnd()
+        print("total length: ", self.__data.shape[0])

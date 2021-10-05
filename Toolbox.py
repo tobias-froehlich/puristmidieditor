@@ -25,4 +25,16 @@ class Toolbox(tk.Frame):
             command=lambda: self.__editMode.set("move")
         )
         self.__moveSequence.grid(column=2, row=0)
+        self.__resizeLeft = tk.Button(
+            self,
+            text="resize left",
+            command=lambda: self.__editMode.set("resize_left")
+        )
+        self.__resizeLeft.grid(column=3, row=0)
+        self.__resizeRight = tk.Button(
+            self,
+            text="resize right",
+            command=lambda: self.__editMode.set("resize_right")
+        )
+        self.__resizeRight.grid(column=4, row=0)
         
