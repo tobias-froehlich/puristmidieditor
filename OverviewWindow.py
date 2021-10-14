@@ -11,6 +11,7 @@ from Scrollcanvas import Scrollcanvas
 from Toolbox import Toolbox
 from TrackBox import TrackBox
 from Track import Track
+from EditingWindow import EditingWindow
 
 class OverviewWindow(tk.Frame):
     def __init__(self, root):
@@ -86,7 +87,9 @@ class OverviewWindow(tk.Frame):
         self.__centerPaneScrollcanvas.refresh()
         self.__tracks.append(Track(
             self.__centerPaneScrollcanvas.canvas,
-            self.__editMode
+            i,
+            self.__editMode,
+            self.__openEditingWindow
         ))
         self.__trackWindows.append(
                 self.__centerPaneScrollcanvas.canvas.create_window(
@@ -142,12 +145,27 @@ class OverviewWindow(tk.Frame):
         )
         trackBox2.setPosition(position1)
         trackBox1.setPosition(position2)
+        track2.setPosition(position1)
+        track1.setPosition(position2)
         self.__trackBoxes[position1] = trackBox2
         self.__trackBoxes[position2] = trackBox1
         self.__tracks[position1] = track2
         self.__tracks[position2] = track1
         
         
+    def __openEditingWindow(self, startTimestep, endTimestep, position):
+        print("open editing window: ", startTimestep, endTimestep, position)
+        root = tk.Toplevel(self)
+        editingWindow = EditingWindow(
+                root,
+                self.__tracks,
+                startTimestep,
+                endTimestep,
+                position
+        )
+        editingWindow.pack()
+        editingWindow.grab_set()
+    
 if __name__ == "__main__":
     root = tk.Tk()
     overviewWindow = OverviewWindow(root)

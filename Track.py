@@ -4,6 +4,7 @@ from const import OVERVIEW_CENTER_PANE_WIDTH
 from const import OVERVIEW_TRACK_BOX_HEIGHT
 from const import TRACK_RIGHT_EXTEND
 from const import OVERVIEW_TIME_STEP_WIDTH
+from const import TRACK_COLORS
 
 from Sequence import Sequence
 
@@ -12,7 +13,7 @@ import numpy as np
 
 class Track(tk.Frame):
     
-    def __init__(self, root, editMode):
+    def __init__(self, root, position, editMode, openEditingWindowFunction):
         super().__init__(
             root,
             width=OVERVIEW_CENTER_PANE_WIDTH
@@ -21,6 +22,8 @@ class Track(tk.Frame):
             relief="raised",
             borderwidth=2
         )
+        self.__position = position
+        self.__openEditingWindowFunction = openEditingWindowFunction
         self.__data = np.zeros((0,), dtype='int')
         self.__editMode = editMode
         self.grid_propagate(0)
@@ -37,6 +40,35 @@ class Track(tk.Frame):
         self.__sequenceRectangles = []
         self.__sequences = []
         
+    def getPosition(self):
+        return self.__position
+        
+    def getColor(self):
+        return TRACK_COLORS[self.__position]
+        
+
+    def setPosition(self, position):
+        self.__position = position
+
+    def addNote(self, midicode, velocity, startTimestep, endTimestep):
+        if startTimestep < 0:
+            return False
+        if endTimestep >= self.__data.shape[0]:
+            return False
+        if self.__data[startTimestep] == 0:
+            return False
+        if self.__data[endTimestep] == 0:
+            return False
+        if self.__data[startTimestep] != self.__data[endTimestep]:
+            return False
+        iSequence = self.__data[startTimestep] - 1
+        sequence = self.__sequences[iSequence]
+        offset = sequence.getStartTimestep()
+        return sequence.addNote(
+            midicode, velocity,
+            startTimestep - offset,
+            endTimestep - offset
+        )
 
     def __onClickLeft(self, event):
         timestep = event.x // OVERVIEW_TIME_STEP_WIDTH
@@ -64,6 +96,8 @@ class Track(tk.Frame):
             self.__resizeLeft()
         elif editMode == "resize_right":
             self.__resizeRight()
+        elif editMode == "edit_midi":
+            self.__editMidi()
         self.__startTimestep = None
         self.__endTimestep = None
         
@@ -228,8 +262,7 @@ class Track(tk.Frame):
             endTimestepOfSequence * OVERVIEW_TIME_STEP_WIDTH,
             y2
         )
-        self.__sequences[index].setStartTimestep(newStartTimestep)
-        self.__sequences[index].setLength(endTimestepOfSequence - newStartTimestep)
+        self.__sequences[index].resizeLeft(newStartTimestep - startTimestepOfSequence)
         
     def __resizeRight(self):
         if (self.__startTimestep >= self.__data.shape[0]):
@@ -256,6 +289,9 @@ class Track(tk.Frame):
             newEndTimestep * OVERVIEW_TIME_STEP_WIDTH,
             y2
         )
-        self.__sequences[index].setLength(newEndTimestep - startTimestepOfSequence)        
+        self.__sequences[index].resizeRight(newEndTimestep - endTimestepOfSequence)        
         self.__deleteZerosAtEnd()
         print("total length: ", self.__data.shape[0])
+        
+    def __editMidi(self):
+        self.__openEditingWindowFunction(self.__startTimestep, self.__endTimestep, self.__position)

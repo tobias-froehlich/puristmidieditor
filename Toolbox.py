@@ -37,4 +37,9 @@ class Toolbox(tk.Frame):
             command=lambda: self.__editMode.set("resize_right")
         )
         self.__resizeRight.grid(column=4, row=0)
-        
+        self.__editMidi = tk.Button(
+            self,
+            text="edit",
+            command=lambda: self.__editMode.set("edit_midi")
+        )
+        self.__editMidi.grid(column=5, row=0)
