@@ -37,6 +37,11 @@ class EditingWindow(tk.Frame):
         self.__clavier.refresh(self.__endTimestep - self.__startTimestep)
         self.__centerPaneScrollcanvas.refresh()
         self.__notes = []
+        for iTrack in range(len(self.__tracks)):
+            track = self.__tracks[iTrack]
+            for note in track.getNotes(self.__startTimestep, self.__endTimestep):
+                print(note)
+                self.__drawNote(iTrack, note[0], note[1], note[2], note[3])
 
     def __onClickLeft(self, event):
         self.__clickMidicode = 127 - int(round(event.y / GRID_PIXELS_PER_SEMINOTE - 0.5))
@@ -59,17 +64,19 @@ class EditingWindow(tk.Frame):
     def __addNote(self, iTrack, midicode, velocity, startTimestep, endTimestep):
         if (endTimestep >= startTimestep):
             if (self.__tracks[iTrack].addNote(midicode, velocity, startTimestep, endTimestep)):
-                x1 = (startTimestep - self.__startTimestep) * GRID_PIXELS_PER_TIMESTEP
-                x2 = (endTimestep + 1 - self.__startTimestep) * GRID_PIXELS_PER_TIMESTEP
-                y1 = (127 - midicode) * GRID_PIXELS_PER_SEMINOTE
-                y2 = (127 - midicode + 1) * GRID_PIXELS_PER_SEMINOTE
-                self.__notes.append(
-                    self.__centerPaneScrollcanvas.createRectangle(
-                        x1, y1, x2, y2,
-                        fill=self.__tracks[iTrack].getColor()
-                    )
-                )
-    
+                self.__drawNote(iTrack, midicode, velocity, startTimestep, endTimestep)
+                
+    def __drawNote(self, iTrack, midicode, velocity, startTimestep, endTimestep):
+        x1 = (startTimestep - self.__startTimestep) * GRID_PIXELS_PER_TIMESTEP
+        x2 = (endTimestep + 1 - self.__startTimestep) * GRID_PIXELS_PER_TIMESTEP
+        y1 = (127 - midicode) * GRID_PIXELS_PER_SEMINOTE
+        y2 = (127 - midicode + 1) * GRID_PIXELS_PER_SEMINOTE
+        self.__notes.append(
+            self.__centerPaneScrollcanvas.createRectangle(
+                x1, y1, x2, y2,
+                fill=self.__tracks[iTrack].getColor()
+            )
+        )
     
 if __name__ == "__main__":
     root = tk.Tk()

@@ -70,6 +70,17 @@ class Track(tk.Frame):
             endTimestep - offset
         )
 
+    def getNotes(self, startTimestep, endTimestep):
+        notes = []
+        for sequence in self.__sequences:
+            notes.extend(
+                sequence.getNotes(
+                    startTimestep,
+                    endTimestep
+                )
+            )
+        return notes
+
     def __onClickLeft(self, event):
         timestep = event.x // OVERVIEW_TIME_STEP_WIDTH
         self.__startTimestep = timestep
