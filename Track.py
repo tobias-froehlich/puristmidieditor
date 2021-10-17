@@ -80,7 +80,20 @@ class Track(tk.Frame):
                 )
             )
         return notes
-
+    
+#    def deleteNotes(self, startTimestep, endTimestep, startMidicode, endMidicode):
+#        for sequence in self.__sequences:
+#            if sequence.getStartTimestep() <= endTimestep \
+#                and sequence.getEndTimestep() >= startTimestep:
+#                sequence.deleteNotes(startTimestep, endTimestep, startMidicode, endMidicode)
+        
+    def deleteNote(self, startTimestep, endTimestep, midicode):
+        for sequence in self.__sequences:
+            if sequence.getStartTimestep() <= endTimestep \
+                and sequence.getEndTimestep() >= startTimestep:
+                sequence.deleteNote(startTimestep, endTimestep, midicode)
+ 
+    
     def __onClickLeft(self, event):
         timestep = event.x // OVERVIEW_TIME_STEP_WIDTH
         self.__startTimestep = timestep
@@ -304,5 +317,8 @@ class Track(tk.Frame):
         self.__deleteZerosAtEnd()
         print("total length: ", self.__data.shape[0])
         
+                
+        
     def __editMidi(self):
-        self.__openEditingWindowFunction(self.__startTimestep, self.__endTimestep, self.__position)
+        if self.__startTimestep < self.__endTimestep:
+            self.__openEditingWindowFunction(self.__startTimestep, self.__endTimestep, self.__position)
