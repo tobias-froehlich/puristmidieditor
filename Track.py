@@ -13,7 +13,7 @@ import numpy as np
 
 class Track(tk.Frame):
     
-    def __init__(self, root, position, editMode, openEditingWindowFunction):
+    def __init__(self, root, overviewWindow, position, editMode, openEditingWindowFunction):
         super().__init__(
             root,
             width=OVERVIEW_CENTER_PANE_WIDTH
@@ -22,6 +22,7 @@ class Track(tk.Frame):
             relief="raised",
             borderwidth=2
         )
+        self.__overviewWindow = overviewWindow
         self.__position = position
         self.__openEditingWindowFunction = openEditingWindowFunction
         self.__data = np.zeros((0,), dtype='int')
@@ -39,6 +40,9 @@ class Track(tk.Frame):
         self.__canvas.bind("<ButtonRelease-1>", self.__onReleaseLeft)
         self.__sequenceRectangles = []
         self.__sequences = []
+        
+    def getLength(self):
+        return self.__data.shape[0]
         
     def getPosition(self):
         return self.__position
@@ -101,6 +105,10 @@ class Track(tk.Frame):
             forbiddenRegions.append((len(self.__data), endTimestep))
         return forbiddenRegions
             
+    
+    def resetSize(self, length):
+        self.config(width=length * OVERVIEW_TIME_STEP_WIDTH)
+        self.__canvas.config(width=length * OVERVIEW_TIME_STEP_WIDTH)
     
     def __onClickLeft(self, event):
         timestep = event.x // OVERVIEW_TIME_STEP_WIDTH
@@ -191,6 +199,7 @@ class Track(tk.Frame):
         )
         self.__fillWithZeros(endTimestep)
         self.__data[startTimestep:endTimestep] = len(self.__sequences)
+        self.__overviewWindow.refresh()
         
     def __fillWithZeros(self, endTimestep):
         if (self.__data.shape[0] < endTimestep):
@@ -214,6 +223,7 @@ class Track(tk.Frame):
             del self.__sequenceRectangles[i]
             del self.__sequences[i]
         self.__deleteZerosAtEnd()
+        self.__overviewWindow.refresh()
         print("length after createSequence: ", self.__data.shape[0])
         print("data after createSequence: ", self.__data)
 
@@ -267,6 +277,7 @@ class Track(tk.Frame):
         )
         self.__sequences[index].setStartTimestep(newStartTimestep)
         self.__deleteZerosAtEnd()
+        self.__overviewWindow.refresh()
         print("total length: ", self.__data.shape[0])
 
     def __resizeLeft(self):
@@ -323,6 +334,7 @@ class Track(tk.Frame):
         )
         self.__sequences[index].resizeRight(newEndTimestep - endTimestepOfSequence)        
         self.__deleteZerosAtEnd()
+        self.__overviewWindow.refresh()
         print("total length: ", self.__data.shape[0])
         
                 

@@ -5,6 +5,7 @@ from const import OVERVIEW_CENTER_PANE_HEIGHT
 from const import OVERVIEW_NUMBER_OF_TRACKS
 from const import OVERVIEW_TRACK_BOX_HEIGHT
 from const import TRACK_RIGHT_EXTEND
+from const import OVERVIEW_TIME_STEP_WIDTH
 
 import tkinter as tk
 from Scrollcanvas import Scrollcanvas
@@ -47,6 +48,19 @@ class OverviewWindow(tk.Frame):
         self.__trackWindows = []
         self.__tracks = []
         self.__forbiddenRegionRectangles = []
+        
+    def refresh(self):
+        print("refresh")
+        maxLength = max([track.getLength() for track in self.__tracks])
+        for position in range(len(self.__tracks)):
+            track = self.__tracks[position]
+            track.resetSize(maxLength + TRACK_RIGHT_EXTEND)
+            trackBackground = self.__trackBackgrounds[position]
+            (x1, y1, x2, y2) = self.__centerPaneScrollcanvas.coords(trackBackground)
+            self.__centerPaneScrollcanvas.coords(trackBackground, x1, y1, (maxLength + TRACK_RIGHT_EXTEND)* OVERVIEW_TIME_STEP_WIDTH, y2)
+            
+        self.__leftPaneScrollcanvas.refresh()
+        self.__centerPaneScrollcanvas.refresh()
 
     def __addTrack(self):
         i = len(self.__trackBoxes)
@@ -73,21 +87,20 @@ class OverviewWindow(tk.Frame):
                         anchor="nw"
                 )
         )
-        self.__leftPaneScrollcanvas.refresh()
         self.__trackBackgrounds.append(
             self.__centerPaneScrollcanvas.createRectangle(
                 0,
                 i * OVERVIEW_TRACK_BOX_HEIGHT,
                 OVERVIEW_CENTER_PANE_WIDTH
-                + TRACK_RIGHT_EXTEND,
+                + TRACK_RIGHT_EXTEND * OVERVIEW_TIME_STEP_WIDTH,
                 (i + 1) * OVERVIEW_TRACK_BOX_HEIGHT,
                 fill="red",
                 tag="scrollcanvas"
             )
         )
-        self.__centerPaneScrollcanvas.refresh()
         self.__tracks.append(Track(
             self.__centerPaneScrollcanvas.canvas,
+            self,
             i,
             self.__editMode,
             self.__openEditingWindow
@@ -99,6 +112,7 @@ class OverviewWindow(tk.Frame):
                         anchor="nw"
                 )
         )
+        self.refresh()
         
     def __removeTrack(self, position):
         lastIndex = len(self.__tracks) - 1
@@ -114,9 +128,7 @@ class OverviewWindow(tk.Frame):
         self.__centerPaneScrollcanvas.canvas.delete(self.__trackWindows[-1])
         del self.__trackWindows[-1]
         del self.__tracks[-1]
-        self.__leftPaneScrollcanvas.refresh()
-        self.__centerPaneScrollcanvas.refresh()
-
+        self.refresh()
         
         
     def __flipTracks(self, position1, position2):
@@ -152,7 +164,7 @@ class OverviewWindow(tk.Frame):
         self.__trackBoxes[position2] = trackBox1
         self.__tracks[position1] = track2
         self.__tracks[position2] = track1
-        
+        self.refresh()
         
     def __openEditingWindow(self, startTimestep, endTimestep, position):
         print("open editing window: ", startTimestep, endTimestep, position)
