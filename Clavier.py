@@ -26,7 +26,7 @@ class Clavier:
                 width=1,
                 outline=GRID_KEY_BORDER_COLOR,
                 fill=color,
-                tags=("scrollcanvas")
+                tags=("scrollcanvas", "z-0")
             )
             self.__rectangles.append(obj)
 

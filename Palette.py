@@ -4,6 +4,7 @@ class Palette(tk.Frame):
 
     def __init__(self, root, tracks):
         super().__init__(root, relief="raised", borderwidth=2)
+        self.__editingWindow = root
         self.__buttons = []
         for track in tracks:
             self.__buttons.append(tk.Button(
@@ -26,3 +27,5 @@ class Palette(tk.Frame):
             button.config(relief="raised")
         self.__buttons[position].config(relief="sunken")
         self.__position = position
+        self.__editingWindow.initForbiddenRegions(position)
+        

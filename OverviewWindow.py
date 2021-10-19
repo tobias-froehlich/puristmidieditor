@@ -46,6 +46,7 @@ class OverviewWindow(tk.Frame):
         self.__trackBackgrounds = []
         self.__trackWindows = []
         self.__tracks = []
+        self.__forbiddenRegionRectangles = []
 
     def __addTrack(self):
         i = len(self.__trackBoxes)

@@ -80,19 +80,27 @@ class Track(tk.Frame):
                 )
             )
         return notes
-    
-#    def deleteNotes(self, startTimestep, endTimestep, startMidicode, endMidicode):
-#        for sequence in self.__sequences:
-#            if sequence.getStartTimestep() <= endTimestep \
-#                and sequence.getEndTimestep() >= startTimestep:
-#                sequence.deleteNotes(startTimestep, endTimestep, startMidicode, endMidicode)
-        
+
     def deleteNote(self, startTimestep, endTimestep, midicode):
         for sequence in self.__sequences:
             if sequence.getStartTimestep() <= endTimestep \
                 and sequence.getEndTimestep() >= startTimestep:
                 sequence.deleteNote(startTimestep, endTimestep, midicode)
  
+    def getForbiddenRegions(self, startTimestep, endTimestep):
+        forbiddenRegions = []
+        start = startTimestep
+        for t in range(startTimestep, min(endTimestep, len(self.__data))):
+            if self.__data[t] > 0:
+                if start < t:
+                    forbiddenRegions.append((start, t - 1))
+                start = t + 1
+        if self.__data[min(endTimestep, len(self.__data)) - 1] == 0:
+            forbiddenRegions.append((start, endTimestep - 1))
+        if endTimestep > len(self.__data):
+            forbiddenRegions.append((len(self.__data), endTimestep))
+        return forbiddenRegions
+            
     
     def __onClickLeft(self, event):
         timestep = event.x // OVERVIEW_TIME_STEP_WIDTH

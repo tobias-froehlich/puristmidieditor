@@ -8,6 +8,7 @@ from const import EDITING_CENTER_PANE_WIDTH
 from const import EDITING_CENTER_PANE_HEIGHT
 from const import GRID_PIXELS_PER_SEMINOTE
 from const import GRID_PIXELS_PER_TIMESTEP
+from const import FORBIDDEN_REGION_COLOR
 
 
 class EditingWindow(tk.Frame):
@@ -20,9 +21,7 @@ class EditingWindow(tk.Frame):
         self.__clickStartMidicode = None
         self.__clickStartTimestep = None
         self.__clickEndTimestep = None
-        self.__position = position
-        self.__palette = Palette(self, tracks)
-        self.__palette.grid(column=0, row=0)
+        self.__position = position       
         self.__centerPaneScrollcanvas = Scrollcanvas(
             self,
             EDITING_CENTER_PANE_WIDTH,
@@ -30,14 +29,19 @@ class EditingWindow(tk.Frame):
             xscroll="master",
             yscroll="master"
         )
+        self.__clavier = Clavier(self.__centerPaneScrollcanvas)
+        self.__clavier.refresh(self.__endTimestep - self.__startTimestep)
+        self.__centerPaneScrollcanvas.refresh()
+        self.__initZLayers()
+        self.__forbiddenRegionRectangles = []
+        self.__palette = Palette(self, tracks)
+        self.__palette.grid(column=0, row=0)  
         self.__centerPaneScrollcanvas.grid(column=1, row=0)
         self.__centerPaneScrollcanvas.bind("<Button-1>", self.__onClickLeft)
         self.__centerPaneScrollcanvas.bind("<ButtonRelease-1>", self.__onReleaseLeft)
         self.__centerPaneScrollcanvas.bind("<Button-3>", self.__onClickRight)
         self.__centerPaneScrollcanvas.bind("<ButtonRelease-3>", self.__onReleaseRight)
-        self.__clavier = Clavier(self.__centerPaneScrollcanvas)
-        self.__clavier.refresh(self.__endTimestep - self.__startTimestep)
-        self.__centerPaneScrollcanvas.refresh()
+
         self.__notes = []
         for iTrack in range(len(self.__tracks)):
             track = self.__tracks[iTrack]
@@ -47,8 +51,46 @@ class EditingWindow(tk.Frame):
                 self.__drawNote(iTrack, note[0], note[1], note[2], note[3])
 
 
-                
+    def initForbiddenRegions(self, iTrack):
+        print("initForbiddenRegions: ", iTrack)
+        while len(self.__forbiddenRegionRectangles) > 0:
+            self.__centerPaneScrollcanvas.delete(self.__forbiddenRegionRectangles[-1])
+            del self.__forbiddenRegionRectangles[-1]
+        track = self.__tracks[iTrack]
+        forbiddenRegions = track.getForbiddenRegions(self.__startTimestep, self.__endTimestep)
+        for region in forbiddenRegions:
+            start = region[0]
+            end = region[1]
+            x1 = (start - self.__startTimestep) * GRID_PIXELS_PER_TIMESTEP
+            x2 = (end - self.__startTimestep + 1) * GRID_PIXELS_PER_TIMESTEP
+            y1 = 0
+            y2 = 128 * GRID_PIXELS_PER_SEMINOTE
+            self.__forbiddenRegionRectangles.append(
+                self.__centerPaneScrollcanvas.createRectangle(
+                    x1, y1, x2, y2,
+                    fill=FORBIDDEN_REGION_COLOR,
+                    tags=("z-1",)
+                )
+            )
+        self.__centerPaneScrollcanvas.canvas.tag_lower("z-1", "z-2")
 
+    def __initZLayers(self):
+        self.__dummyRectangleForZ0 = self.__centerPaneScrollcanvas.createRectangle(
+                -10, -10, -5, -5,
+                fill="yellow",
+                tags=("z-0")
+        )
+        self.__dummyRectangleForZ1 = self.__centerPaneScrollcanvas.createRectangle(
+                -10, -10, -5, -5,
+                fill="yellow",
+                tags=("z-1")
+        )
+        self.__dummyRectangleForZ2 = self.__centerPaneScrollcanvas.createRectangle(
+                -10, -10, -5, -5,
+                fill="yellow",
+                tags=("z-2")
+        )
+        
     def __onClickLeft(self, event):
         self.__clickStartMidicode = 127 - int(round(event.y / GRID_PIXELS_PER_SEMINOTE - 0.5))
         self.__clickStartTimestep = int(round(event.x / GRID_PIXELS_PER_TIMESTEP - 0.5)) + self.__startTimestep
@@ -93,14 +135,14 @@ class EditingWindow(tk.Frame):
         y2 = (127 - midicode + 1) * GRID_PIXELS_PER_SEMINOTE
         newNote = self.__centerPaneScrollcanvas.createRectangle(
                 x1, y1, x2, y2,
-                fill=self.__tracks[iTrack].getColor()
+                fill=self.__tracks[iTrack].getColor(),
+                tags=("z-2",)
         )
         self.__notes[iTrack].append(newNote)
         
     def __deleteNotes(self, iTrack, startTimestep, endTimestep, startMidicode, endMidicode):
         print("deleteNotes: ", startTimestep, endTimestep, startMidicode, endMidicode)
 #        self.__tracks[iTrack].__deleteNotes(startTimestep, endTimestep, startMidicode, endMidicode)
-        indexesToDelete = []
         xmin = (startTimestep - self.__startTimestep) * GRID_PIXELS_PER_TIMESTEP
         xmax = (endTimestep - self.__startTimestep) * GRID_PIXELS_PER_TIMESTEP
         ymax = (127 - startMidicode) * GRID_PIXELS_PER_SEMINOTE
@@ -111,7 +153,6 @@ class EditingWindow(tk.Frame):
             (x1, y1, x2, y2) = self.__centerPaneScrollcanvas.coords(note)
             if (x1 <= xmax) and (x2 > xmin) and (y1 <= ymax) and (y2 > ymin):
                 self.__centerPaneScrollcanvas.delete(note)
-                indexesToDelete.append(iNote)        
                 del self.__notes[iTrack][iNote]
                 noteMidicode = 127 - int(round(y1 / GRID_PIXELS_PER_SEMINOTE))
                 noteStartTimestep = int(round(x1 / GRID_PIXELS_PER_TIMESTEP)) + self.__startTimestep
@@ -120,6 +161,7 @@ class EditingWindow(tk.Frame):
             else:
                 iNote += 1
             
+
     
 if __name__ == "__main__":
     root = tk.Tk()

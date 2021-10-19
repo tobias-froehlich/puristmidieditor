@@ -101,16 +101,3 @@ class Sequence():
         print("noteDeleted. data: ", self.__data)
             
     
-#    def deleteNotes(self, startTimestep, endTimestep, startMidicode, endMidicode):
-#        startTimes = np.zeros((128,), dtype='int')
-#        for t in range(len(self.__data)):
-#            for p in range(MAX_POLY):
-#                if np.any(self.__data[t, p, 0, :] != 128):
-#                    if np.any(startMidicode <= self.__data[t, p, 0, 0] <= endMidicode):
-#                        midicode = self.__data[t, p, 0, 0]
-#                        startTimes[midicode] = t + self.getStartTimestep()
-#            for p in range(MAX_POLY):
-#                if (np.any(self.__data[t, p, 1, :] != 128)):
-#                    midicode = self.__data[t, p, 1, 0]
-#                    startTime = startTimes[midicode]
-#                    
