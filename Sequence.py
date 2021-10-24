@@ -88,6 +88,9 @@ class Sequence():
                         startTimes[midicode] = 0
         return notes
     
+    def getAllNotes(self):
+        return self.getNotes(self.getStartTimestep(), self.getEndTimestep())
+    
     def deleteNote(self, startTimestep, endTimestep, midicode):
         for p in range(MAX_POLY):
             if self.__data[startTimestep - self.__startTimestep, p, 0, 0] == midicode:
@@ -100,4 +103,15 @@ class Sequence():
                 
         print("noteDeleted. data: ", self.__data)
             
+    def getFirstNonemptyTimestep(self):
+        for t in range(self.__length):
+            if np.any(self.__data[t, :, 0, :] != 128):
+                return t + self.getStartTimestep()
+        return self.getEndTimestep() + 1
     
+    def getLastNonemptyTimestep(self):
+        for t1 in range(self.__length):
+            t = self.__length - t1 - 1
+            if np.any(self.__data[t, :, 1, :] != 128):
+                return t + self.getStartTimestep()
+        return self.getStartTimestep()

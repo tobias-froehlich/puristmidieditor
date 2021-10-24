@@ -39,6 +39,8 @@ class Track(tk.Frame):
         self.__canvas.bind("<Button-1>", self.__onClickLeft)
         self.__canvas.bind("<ButtonRelease-1>", self.__onReleaseLeft)
         self.__sequenceRectangles = []
+        self.__sequenceImageObjects = []
+        self.__sequenceImages = []
         self.__sequences = []
         
     def getLength(self):
@@ -68,11 +70,16 @@ class Track(tk.Frame):
         iSequence = self.__data[startTimestep] - 1
         sequence = self.__sequences[iSequence]
         offset = sequence.getStartTimestep()
-        return sequence.addNote(
+        possible =  sequence.addNote(
             midicode, velocity,
             startTimestep - offset,
             endTimestep - offset
         )
+        if possible:
+            imageObject = self.__sequenceImageObjects[iSequence]
+            for x in range((startTimestep - offset) * OVERVIEW_TIME_STEP_WIDTH, (endTimestep + 1 - offset) * OVERVIEW_TIME_STEP_WIDTH - 1):
+                imageObject.put("#ffffff", (x, 128 - midicode))
+        return possible
 
     def getNotes(self, startTimestep, endTimestep):
         notes = []
@@ -86,11 +93,16 @@ class Track(tk.Frame):
         return notes
 
     def deleteNote(self, startTimestep, endTimestep, midicode):
-        for sequence in self.__sequences:
+        for iSequence in range(len(self.__sequences)):
+            sequence = self.__sequences[iSequence]
             if sequence.getStartTimestep() <= endTimestep \
                 and sequence.getEndTimestep() >= startTimestep:
                 sequence.deleteNote(startTimestep, endTimestep, midicode)
- 
+                offset = sequence.getStartTimestep()
+                imageObject = self.__sequenceImageObjects[iSequence]
+                for x in range((startTimestep - offset) * OVERVIEW_TIME_STEP_WIDTH, (endTimestep - offset + 1) * OVERVIEW_TIME_STEP_WIDTH - 1):
+                    imageObject.transparency_set(x, 128 - midicode, True)
+                                    
     def getForbiddenRegions(self, startTimestep, endTimestep):
         forbiddenRegions = []
         start = startTimestep
@@ -188,12 +200,29 @@ class Track(tk.Frame):
         self.__sequenceRectangles.append(
             self.__canvas.create_rectangle(
                 startTimestep * OVERVIEW_TIME_STEP_WIDTH,
-                2,
+                1,
                 endTimestep * OVERVIEW_TIME_STEP_WIDTH,
-                OVERVIEW_TRACK_BOX_HEIGHT - 2,
-                fill="green"
+                OVERVIEW_TRACK_BOX_HEIGHT - 4,
+                fill="blue",
             )
         )
+        self.__sequenceImageObjects.append(
+            tk.PhotoImage(
+                width=(endTimestep - startTimestep) * OVERVIEW_TIME_STEP_WIDTH,
+                height=OVERVIEW_TRACK_BOX_HEIGHT - 5
+            )
+        )
+        print(self.__sequenceImageObjects)
+        self.__sequenceImageObjects[-1].put("#ffffff", (0, 0))
+        self.__sequenceImages.append(
+            self.__canvas.create_image(
+                startTimestep * OVERVIEW_TIME_STEP_WIDTH,
+                1,
+                image=self.__sequenceImageObjects[-1],
+                anchor="nw"
+            )
+        )
+
         self.__sequences.append(
             Sequence(startTimestep, endTimestep - startTimestep)
         )
@@ -220,7 +249,10 @@ class Track(tk.Frame):
             self.__data[self.__sequences[i].getStartTimestep():self.__sequences[i].getEndTimestep()] = 0
             self.__data = np.where(self.__data > i, self.__data - 1, self.__data)
             self.__canvas.delete(self.__sequenceRectangles[i])
+            self.__canvas.delete(self.__sequenceImages[i])
             del self.__sequenceRectangles[i]
+            del self.__sequenceImages[i]
+            del self.__sequenceImageObjects[i]
             del self.__sequences[i]
         self.__deleteZerosAtEnd()
         self.__overviewWindow.refresh()
@@ -267,13 +299,21 @@ class Track(tk.Frame):
                     possible = True
             i += 1
         self.__data[newStartTimestep:newEndTimestep] = index + 1
-        (x1, y1, x2, y2) = self.__canvas.coords(index + 1)
+        rectangle = self.__sequenceRectangles[index]
+        (x1, y1, x2, y2) = self.__canvas.coords(rectangle)
         self.__canvas.coords(
-            index + 1,
+            rectangle,
             newStartTimestep * OVERVIEW_TIME_STEP_WIDTH,
             y1,
             newEndTimestep * OVERVIEW_TIME_STEP_WIDTH,
             y2
+        )
+        image = self.__sequenceImages[index]
+        (x, y) = self.__canvas.coords(image)
+        self.__canvas.coords(
+            image,
+            newStartTimestep * OVERVIEW_TIME_STEP_WIDTH,
+            y1
         )
         self.__sequences[index].setStartTimestep(newStartTimestep)
         self.__deleteZerosAtEnd()
@@ -293,19 +333,42 @@ class Track(tk.Frame):
         newStartTimestep = startTimestepOfSequence + diff
         newStartTimestep = max(newStartTimestep, self.__firstFreeBefore(startTimestepOfSequence))
         newStartTimestep = max(newStartTimestep, 0)
+
+        sequence = self.__sequences[index]
+        newStartTimestep = min(newStartTimestep, sequence.getFirstNonemptyTimestep())
         if newStartTimestep >= endTimestepOfSequence:
             self.__data[startTimestepOfSequence:endTimestepOfSequence] = index + 1
-            return
+            return       
         self.__data[newStartTimestep:endTimestepOfSequence] = index + 1
-        (x1, y1, x2, y2) = self.__canvas.coords(index + 1)
+        rectangle = self.__sequenceRectangles[index]
+        (x1, y1, x2, y2) = self.__canvas.coords(rectangle)
         self.__canvas.coords(
-            index + 1,
+            rectangle,
             newStartTimestep * OVERVIEW_TIME_STEP_WIDTH,
             y1,
             endTimestepOfSequence * OVERVIEW_TIME_STEP_WIDTH,
             y2
         )
-        self.__sequences[index].resizeLeft(newStartTimestep - startTimestepOfSequence)
+        image = self.__sequenceImages[index]
+        (x1, y1) = self.__canvas.coords(image)
+        self.__canvas.coords(
+            image,
+            newStartTimestep * OVERVIEW_TIME_STEP_WIDTH,
+            y1
+        )
+        imageObject = self.__sequenceImageObjects[index]
+        imageObject.config(width=(endTimestepOfSequence - newStartTimestep) * OVERVIEW_TIME_STEP_WIDTH)
+        imageObject.blank()
+
+        sequence.resizeLeft(newStartTimestep - startTimestepOfSequence)
+        for note in sequence.getAllNotes():
+            midicode = note[0]
+            start = note[2]
+            end = note[3]
+            offset = sequence.getStartTimestep()
+            for x in range((start - offset) * OVERVIEW_TIME_STEP_WIDTH, (end + 1 - offset) * OVERVIEW_TIME_STEP_WIDTH - 1):
+                imageObject.put("#ffffff", (x, 128 - midicode))
+
         
     def __resizeRight(self):
         if (self.__startTimestep >= self.__data.shape[0]):
@@ -320,19 +383,24 @@ class Track(tk.Frame):
         newEndTimestep = endTimestepOfSequence + diff
         newEndTimestep = min(newEndTimestep, self.__lastFreeAfter(endTimestepOfSequence) + 1)
         self.__fillWithZeros(newEndTimestep)
+        sequence = self.__sequences[index]
+        newEndTimestep = max(newEndTimestep, sequence.getLastNonemptyTimestep() + 1)
         if startTimestepOfSequence >= newEndTimestep:
             self.__data[startTimestepOfSequence:endTimestepOfSequence] = index + 1
             return
         self.__data[startTimestepOfSequence:newEndTimestep] = index + 1
-        (x1, y1, x2, y2) = self.__canvas.coords(index + 1)
+        rectangle = self.__sequenceRectangles[index]
+        (x1, y1, x2, y2) = self.__canvas.coords(rectangle)
         self.__canvas.coords(
-            index + 1,
+            rectangle,
             startTimestepOfSequence * OVERVIEW_TIME_STEP_WIDTH,
             y1,
             newEndTimestep * OVERVIEW_TIME_STEP_WIDTH,
             y2
         )
-        self.__sequences[index].resizeRight(newEndTimestep - endTimestepOfSequence)        
+
+        sequence.resizeRight(newEndTimestep - endTimestepOfSequence)
+        self.__sequenceImageObjects[index].config(width=(newEndTimestep - startTimestepOfSequence) * OVERVIEW_TIME_STEP_WIDTH)
         self.__deleteZerosAtEnd()
         self.__overviewWindow.refresh()
         print("total length: ", self.__data.shape[0])
